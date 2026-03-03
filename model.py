@@ -1,28 +1,24 @@
-# model.py
-
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 
-# -----------------------------------------------------------
-# TRAIN MODEL WHEN THIS FILE IS IMPORTED
-# -----------------------------------------------------------
+def load_and_train_model():
 
-def train_model():
-    df = pd.read_csv("data/yield_df.csv")
+    # 1. Load Dataset
+    df = pd.read_csv("yield_df.csv")
 
-    # Drop waste column
+    # 2. Drop Year (waste column)
     df = df.drop(columns=["Year"], errors="ignore")
 
-    # Label Encoding
+    # 3. Label Encoding
     le_area = LabelEncoder()
     le_item = LabelEncoder()
 
     df["Area_enc"] = le_area.fit_transform(df["Area"])
     df["Item_enc"] = le_item.fit_transform(df["Item"])
 
-    # Features and Target
+    # 4. Features and Target
     X = df[[
         "Area_enc",
         "Item_enc",
@@ -30,45 +26,24 @@ def train_model():
         "pesticides_tonnes",
         "avg_temp"
     ]]
+
     y = df["hg/ha_yield"]
 
-    # Scaling numerical columns
+    # 5. Scaling numerical features
     scaler = StandardScaler()
     X_scaled = X.copy()
-    X_scaled[["average_rain_fall_mm_per_year",
-              "pesticides_tonnes",
-              "avg_temp"]] = scaler.fit_transform(
-        X_scaled[["average_rain_fall_mm_per_year",
-                  "pesticides_tonnes",
-                  "avg_temp"]]
+    X_scaled[["average_rain_fall_mm_per_year", "pesticides_tonnes", "avg_temp"]] = \
+        scaler.fit_transform(X_scaled[["average_rain_fall_mm_per_year",
+                                       "pesticides_tonnes",
+                                       "avg_temp"]])
+
+    # 6. Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y, test_size=0.2, random_state=42
     )
 
-    # Train model
+    # 7. Train Model
     model = RandomForestRegressor(n_estimators=300, random_state=42)
-    model.fit(X_scaled, y)
+    model.fit(X_train, y_train)
 
     return model, le_area, le_item, scaler
-
-
-# Train model ONCE, reuse across app
-model, le_area, le_item, scaler = train_model()
-
-
-# -----------------------------------------------------------
-# PREDICTION FUNCTION (Used by app.py)
-# -----------------------------------------------------------
-
-def predict_yield(area, item, rainfall, pesticides, temp):
-    # Transform categorical values
-    area_enc = le_area.transform([area])[0]
-    item_enc = le_item.transform([item])[0]
-
-    # Create feature row
-    X = [[area_enc, item_enc, rainfall, pesticides, temp]]
-
-    # Scale numerical values
-    X_scaled = X.copy()
-    X_scaled = scaler.transform(X)
-
-    # Predict
-    return model.predict(X_scaled)[0]
